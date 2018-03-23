@@ -49,7 +49,7 @@ var auth = (req, res, next) => {
 
 app.get('/Cameras', auth, (req, res) => {
     var ret = [];
-    Object.keys(cameras).forEach( (key) => {
+    Object.keys(cameras).forEach((key) => {
         ret.push({ Id: key, Name: cameras[key].name, LiveIp: cameras[key].liveip, Files: cameras[key].files });
     });
 
@@ -86,12 +86,10 @@ app.post('/DeleteCameraFile', (req, res) => {
 });
 
 app.get('/CameraEvent', auth, (req, res) => {
-    if (createEvents[req.query.Id] && createEvents[req.query.Id] != undefined)
-    {
-        return  createEvents[req.query.Id];           
+    if (createEvents[req.query.Id] && createEvents[req.query.Id] != undefined) {
+        return createEvents[req.query.Id];
     }
-    else
-    {
+    else {
         return null;
     }
 });
@@ -171,7 +169,7 @@ function startMonitoring() {
 
     var targets = [];
 
-    Object.keys(cameras).forEach( (key) => {
+    Object.keys(cameras).forEach((key) => {
         targets.push(cameras[key].files);
     });
 
@@ -209,12 +207,11 @@ http.createServer(app).listen(app.get('port'), () => {
 
 console.log("Loading Camera data...");
 
-fs.readFile(__dirname + '/cameras.json', (err, data) =>{
+fs.readFile(__dirname + '/cameras.json', (err, data) => {
     cameras = JSON.parse(data);
     startMonitoring();
 });
 
-process.on("exit", () =>
-{
+process.on("exit", () => {
     //stopMonitoring();
 });
