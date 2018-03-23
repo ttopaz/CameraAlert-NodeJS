@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8" ?>
-<Cameras>
-  <Camera id="1" name="Driveway" liveIp="rtsp://admin:nadneda123@192.168.1.115:554/h264Preview_01_main" files="/media/UsbDrive/Camera/driveway"/>
-  <Camera id="2" name="Backdoor" liveIp="rtsp://admin:nadneda123@192.168.1.116:555/h264Preview_01_main" files="/media/UsbDrive/Camera/backdoor"/>
-</Cameras>
