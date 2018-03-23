@@ -1,0 +1,13 @@
+{
+    "1": 
+        {
+        "name" :"Driveway", 
+        "liveip" :"rtsp://admin:nadneda123@192.168.1.115:554/h264Preview_01_main", 
+        "files" :"/media/UsbDrive/Camera/driveway"
+        },
+        "2" : { 
+        "name" :"Backdoor", 
+        "liveip" :"rtsp://admin:nadneda123@192.168.1.116:555/h264Preview_01_main", 
+        "files" :"/media/UsbDrive/Camera/backdoor"
+    }
+}
