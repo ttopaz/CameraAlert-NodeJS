@@ -28,7 +28,7 @@ if (app.get('env') == 'development') {
     app.use(errorHandler());
 }
 
-var auth = function (req, res, next) {
+var auth = (req, res, next) => {
     function unauthorized(res) {
         res.set('WWW-Authenticate', 'Basic realm=Authorization Required');
         return res.send(401);
@@ -47,9 +47,9 @@ var auth = function (req, res, next) {
     };
 };
 
-app.get('/Cameras', auth, function (req, res) {
+app.get('/Cameras', auth, (req, res) => {
     var ret = [];
-    Object.keys(cameras).forEach(function (key) {
+    Object.keys(cameras).forEach( (key) => {
         ret.push({ Id: key, Name: cameras[key].name, LiveIp: cameras[key].liveip, Files: cameras[key].files });
     });
 
@@ -58,7 +58,7 @@ app.get('/Cameras', auth, function (req, res) {
 });
 
 
-app.get('/GetCameraImage', function (req, res) {
+app.get('/GetCameraImage', (req, res) => {
     var path = cameras[req.query.Id].files + "/" + req.query.File;
 
     var stat = fs.statSync(path);
@@ -66,16 +66,16 @@ app.get('/GetCameraImage', function (req, res) {
     var total = stat.size;
 
     var stream = fs.createReadStream(path);
-    stream.on('open', function () {
+    stream.on('open', () => {
         res.writeHead(200, { 'Content-Length': total, 'Content-Type': 'image/jpg' });
         stream.pipe(res);
     });
 });
 
-app.post('/DeleteCameraFile', function (req, res) {
+app.post('/DeleteCameraFile', (req, res) => {
     var path = cameras[req.body.Id].files + "/" + req.query.File;
 
-    fs.unlink(path, function (err) {
+    fs.unlink(path, (err) => {
         path = path.replace(".mp4", ".jpg");
 
         fs.unlink(path, function (err) {
@@ -85,16 +85,27 @@ app.post('/DeleteCameraFile', function (req, res) {
     });
 });
 
+app.get('/CameraEvent', auth, (req, res) => {
+    if (createEvents[req.query.Id] && createEvents[req.query.Id] != undefined)
+    {
+        return  createEvents[req.query.Id];           
+    }
+    else
+    {
+        return null;
+    }
+});
+
 var oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 
-app.get('/CameraFiles', auth, function (req, res) {
+app.get('/CameraFiles', auth, (req, res) => {
     var ret = [];
 
     var path = cameras[req.query.Id].files;
 
     var days = req.query.Days ? req.query.Days : 0;
 
-    fs.readdir(path, function (err, items) {
+    fs.readdir(path, (err, items) => {
         if (items) {
             var currentTime = new Date();
 
@@ -122,7 +133,7 @@ app.get('/CameraFiles', auth, function (req, res) {
     });
 });
 
-app.get('/PlayCameraFile', auth, function (req, res) {
+app.get('/PlayCameraFile', auth, (req, res) => {
     var path = cameras[req.query.Id].files + "/" + req.query.File;
 
     var stat = fs.statSync(path);
@@ -141,7 +152,7 @@ app.get('/PlayCameraFile', auth, function (req, res) {
 
         var file = fs.createReadStream(path, { start: start, end: end });
         res.writeHead(206, { 'Content-Range': 'bytes ' + start + '-' + end + '/' + total, 'Accept-Ranges': 'bytes', 'Content-Length': chunksize, 'Content-Type': 'video/mp4' });
-        file.on('open', function () {
+        file.on('open', () => {
             file.pipe(res);
         });
     }
@@ -149,7 +160,7 @@ app.get('/PlayCameraFile', auth, function (req, res) {
         res.writeHead(200, { 'Content-Length': total, 'Content-Type': 'video/mp4' });
 
         var stream = fs.createReadStream(path);
-        stream.on('open', function () {
+        stream.on('open', () => {
             stream.pipe(res);
         });
     }
@@ -160,16 +171,16 @@ function startMonitoring() {
 
     var targets = [];
 
-    Object.keys(cameras).forEach(function (key) {
+    Object.keys(cameras).forEach( (key) => {
         targets.push(cameras[key].files);
     });
 
-    var onFileCreation = function (ev) {
-        console.log("File " + ev.filename + " was created on " + ev.timestamp.toString());
+    var onFileCreation = (ev) => {
+        console.log("File " + ev.filename + " was created on " + ev.timestamp.toISOString());
 
         Object.keys(cameras).forEach(function (key) {
             if (ev.filename.substring(0, cameras[key].files.length) == cameras[key].files) {
-                createEvents[key] = { file: ev.filename, time: ev.timestamp.toString() };
+                createEvents[key] = { file: ev.filename.substring(cameras[key].files.length + 1), time: ev.timestamp };
                 console.dir(createEvents);
                 return;
             }
@@ -178,7 +189,7 @@ function startMonitoring() {
 
     var options = {
         recursive: false,
-        targets,
+        target: targets,
         listeners: {
             create: onFileCreation
         }
@@ -192,19 +203,18 @@ function stopMonitoring() {
     filemon.stop();
 }
 
-http.createServer(app).listen(app.get('port'), function () {
+http.createServer(app).listen(app.get('port'), () => {
     console.log('Express server listening on port ' + app.get('port'));
 });
 
 console.log("Loading Camera data...");
 
-fs.readFile(__dirname + '/cameras.json', function (err, data) {
+fs.readFile(__dirname + '/cameras.json', (err, data) =>{
     cameras = JSON.parse(data);
     startMonitoring();
 });
 
-process.on("exit", function () {
-    stopMonitoring();
+process.on("exit", () =>
+{
+    //stopMonitoring();
 });
-
-
