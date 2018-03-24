@@ -134,7 +134,7 @@ app.get('/CameraFiles', auth, (req, res) => {
 app.get('/PlayCameraFile', auth, (req, res) => {
     var path = cameras[req.query.Id].files + "/" + req.query.File;
 
-    var stat = fs.statSync(path);
+    var stat = fs.statSync(path); 
 
     var total = stat.size;
     if (req.headers['range']) {
