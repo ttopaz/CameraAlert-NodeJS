@@ -61,15 +61,21 @@ app.get('/Cameras', auth, (req, res) => {
 app.get('/GetCameraImage', (req, res) => {
     var path = cameras[req.query.Id].files + "/" + req.query.File;
 
-    var stat = fs.statSync(path);
+    try {
+        var stat = fs.statSync(path);
 
-    var total = stat.size;
+        var total = stat.size;
 
-    var stream = fs.createReadStream(path);
-    stream.on('open', () => {
-        res.writeHead(200, { 'Content-Length': total, 'Content-Type': 'image/jpg' });
-        stream.pipe(res);
-    });
+        var stream = fs.createReadStream(path);
+        stream.on('open', () => {
+            res.writeHead(200, { 'Content-Length': total, 'Content-Type': 'image/jpg' });
+            stream.pipe(res);
+        });
+    }
+    catch (e)
+    {
+        res.send(null);
+    }
 });
 
 app.post('/DeleteCameraFile', (req, res) => {
@@ -85,13 +91,23 @@ app.post('/DeleteCameraFile', (req, res) => {
     });
 });
 
-app.get('/CameraEvent', auth, (req, res) => {
+app.get('/GetCameraEvent', auth, (req, res) => {
     if (createEvents[req.query.Id] && createEvents[req.query.Id] != undefined) {
-        return createEvents[req.query.Id];
+        ret.send({ cameraId: key, cameraName : cameras[key].name, file : createEvents[req.query.Id].file, date : createEvents[req.query.Id].date});
     }
     else {
-        return null;
+        res.send(null);
     }
+});
+
+app.get('/GetEvents', auth, (req, res) => {
+    var ret = [];
+
+    Object.keys(createEvents).forEach(function (key) {
+        ret.push({ cameraId: key, cameraName : cameras[key].name, file : createEvents[key].file, date : createEvents[key].date});
+    });
+
+    res.send(ret);
 });
 
 var oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
@@ -103,32 +119,37 @@ app.get('/CameraFiles', auth, (req, res) => {
 
     var days = req.query.Days ? req.query.Days : 0;
 
-    fs.readdir(path, (err, items) => {
-        if (items) {
-            var currentTime = new Date();
+    console.log("CameraFiles");      
 
-            for (var i = 0; i < items.length; i++) {
-                if (req.query.Filter && items[i].indexOf(req.query.Filter) < 0) {
-                    continue;
-                }
-                var file = path + '/' + items[i];
+    var items = fs.readdirSync(path);
 
-                var stats = fs.statSync(file);
-                var date = stats["mtime"];
-                var bdate = stats["birthtime"];
+    console.log("CameraFiles: " + items.length);        
 
-                if (days > 0) {
-                    var diffDays = Math.round(Math.abs((date.getTime() - currentTime.getTime()) / (oneDay)));
-                    if (diffDays > days)
-                        continue;
-                }
+    if (items) 
+    {
+        var currentTime = new Date();
 
-                var item = { File: items[i], Path: file, Size: stats["size"], Date: date, CreateTime: bdate };
-                ret.push(item);
+        for (var i = 0; i < items.length; i++) {
+            if (req.query.Filter && items[i].indexOf(req.query.Filter) < 0) {
+                continue;
             }
+            var file = path + '/' + items[i];
+
+            var stats = fs.statSync(file);
+            var date = stats["mtime"];
+            var bdate = stats["birthtime"];
+
+            if (days > 0) {
+                var diffDays = Math.round(Math.abs((date.getTime() - currentTime.getTime()) / (oneDay)));
+                if (diffDays > days)
+                    continue;
+            }
+
+            var item = { File: items[i], Path: file, Size: stats["size"], Date: date, CreateTime: bdate };
+            ret.push(item);
         }
-        res.send(ret);
-    });
+    }
+    res.send(ret);
 });
 
 app.get('/PlayCameraFile', auth, (req, res) => {
@@ -178,7 +199,7 @@ function startMonitoring() {
 
         Object.keys(cameras).forEach(function (key) {
             if (ev.filename.substring(0, cameras[key].files.length) == cameras[key].files) {
-                createEvents[key] = { file: ev.filename.substring(cameras[key].files.length + 1), time: ev.timestamp };
+                createEvents[key] = { file: ev.filename.substring(cameras[key].files.length + 1), date: ev.timestamp };
                 console.dir(createEvents);
                 return;
             }
