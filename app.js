@@ -115,7 +115,7 @@ var oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 app.get('/CameraFiles', auth, (req, res) => {
     var ret = [];
 
-    var path = cameras[req.query.Id].files;
+    var basePath = cameras[req.query.Id].files;
 
     var days = req.query.Days ? req.query.Days : 0;
 
@@ -133,7 +133,7 @@ app.get('/CameraFiles', auth, (req, res) => {
             if (req.query.Filter && items[i].indexOf(req.query.Filter) < 0) {
                 continue;
             }
-            var file = path + '/' + items[i];
+            var path = basePath + '/' + items[i];
 
             var stats = fs.statSync(file);
             var date = stats["mtime"];
@@ -145,12 +145,19 @@ app.get('/CameraFiles', auth, (req, res) => {
                     continue;
             }
 
-            var item = { File: items[i], Path: file, Size: stats["size"], Date: date, CreateTime: bdate };
+            var imagePath = getVideoImagePath(path);
+
+            var item = { File: items[i], Path: path, ImagePath : imagePath, Size: stats["size"], Date: date, CreateTime: bdate };
             ret.push(item);
         }
     }
     res.send(ret);
 });
+
+function getVideoImagePath(path)
+{
+    return path.replace(".mp4", ".jpg");
+}
 
 app.get('/PlayCameraFile', auth, (req, res) => {
     var path = cameras[req.query.Id].files + "/" + req.query.File;
