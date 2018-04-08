@@ -16,6 +16,7 @@
     "http": "^0.0.0",
     "net": "^1.0.2",
     "node-linq": "^0.0.5",
+    "node-rtsp-stream": "0.0.3",
     "pajk-lwip": "^0.2.0",
     "ring-api": "^2.0.7",
     "xml2js": "^0.4.17"

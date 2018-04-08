@@ -13,6 +13,7 @@ var json = require('express-json');
 var errorHandler = require('errorhandler');
 var filemon = require('filemonitor');
 const RingApi = require( 'doorbot' );
+const rtspStream = require('node-rtsp-stream');
 
 var app = express();
 
@@ -303,6 +304,20 @@ app.get('/PlayCameraFile', auth, (req, res) => {
             stream.pipe(res);
         });
     }
+    }
+});
+
+var rtspStreaming;
+
+app.get('/PlayLiveVideo', auth, (req, res) => {
+    res.send({ status : "OK" });
+    if (!rtspStreaming)
+    {
+        rtspStreaming = new rtspStream({
+            name: 'name',
+            streamUrl: cameras[req.query.Id].liveip,
+            wsPort: 9999
+        });
     }
 });
 
