@@ -3,11 +3,20 @@
         {
         "name" :"Driveway", 
         "liveip" :"rtsp://admin:nadneda123@192.168.1.115:554/h264Preview_01_main", 
-        "files" :"/media/UsbDrive/Camera/driveway"
+        "files" :"/media/UsbDrive/Camera/driveway",
+        "type" : "ftp"
         },
         "2" : { 
-        "name" :"Backdoor", 
+        "name" :"Back Door", 
         "liveip" :"rtsp://admin:nadneda123@192.168.1.116:555/h264Preview_01_main", 
-        "files" :"/media/UsbDrive/Camera/backdoor"
-    }
+        "files" :"/media/UsbDrive/Camera/backdoor",
+        "type" : "ftp"
+        },
+        "3" : { 
+            "name" :"Front Door", 
+            "username" : "ttopaz@gmail.com",
+            "password" : "nadneda123",
+            "diveceId" : "1",
+            "type" : "ring"
+            }
 }
