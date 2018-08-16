@@ -1,29 +1,29 @@
-var fs = require('fs'),
+
+const dotenv = require('dotenv').config({path: __dirname + "/.env"});
+const fs = require('fs'),
     xml2js = require('xml2js'),
     net = require('net');
+const express = require('express');
+const basicAuth = require('basic-auth');
+const bodyParser = require('body-parser');
+const http = require('http');
+const cors = require('cors');
+const json = require('express-json');
+const errorHandler = require('errorhandler');
+const ringApi = require( 'doorbot' );
+const watch = require('node-watch');
 
-var linq = require('node-linq').LINQ;
-var express = require('express');
-var basicAuth = require('basic-auth');
-var bodyParser = require('body-parser');
-var http = require('http');
-var cors = require('cors');
-//var lwip = require('lwip');
-var json = require('express-json');
-var errorHandler = require('errorhandler');
-var filemon = require('filemonitor');
-const RingApi = require( 'doorbot' );
-const rtspStream = require('node-rtsp-stream');
+const app = express();
 
-var app = express();
-
-var currentDevice = 0;
+const currentDevice = 0;
 
 http.globalAgent.maxSockets = 1000;
 
 var cameras = null;
-var createEvents = {};
-app.set('port', /*process.env.PORT ||*/ 3500);
+
+//dotenv.load()
+
+app.set('port', process.env.PORT || 3500);
 app.use(json());
 app.use(cors());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -47,8 +47,7 @@ var auth = (req, res, next) => {
         console.log("unauthorized");
         return unauthorized(res);
     };
-
-    if (user.name === 'admin' && user.pass === 'admin') {
+    if (user.name === "admin" && user.pass === "admin") {
         return next();
     } else {
         return unauthorized(res);
@@ -58,7 +57,8 @@ var auth = (req, res, next) => {
 app.get('/Cameras', auth, (req, res) => {
     var ret = [];
     Object.keys(cameras).forEach((key) => {
-        ret.push({ Id: key, Name: cameras[key].name, LiveIp: cameras[key].liveip, Files: cameras[key].files,
+        ret.push({ Id: key, Name: cameras[key].name, LiveIp: cameras[key].liveip, 
+	    LiveVideo : cameras[key].livevideo, Files: cameras[key].files,
             Username : cameras[key].username, Password : cameras[key].password, 
             Type : cameras[key].type, DeviceId : cameras[key].deviceId });
     });
@@ -75,23 +75,9 @@ app.get('/GetCameraImage', (req, res) => {
     }
     else
     {
-    var path = /*cameras[req.query.Id].files + "/" + */req.query.File;
+        var path = req.query.File;
 
-    try {
-/*         if (req.query.Width)
-         {
-            lwip.open(path, function (err, image) {
-                 var ratio = image.height() / image.width();
-                 image.resize(parseInt(req.query.Width), ratio * parseInt(req.query.Width), function(err, image) {
-                    image.toBuffer("jpg", function(err, buffer)
-                    {
-                        res.send(buffer);
-                    });
-                 });
-             });
-        }
-        else*/
-        {
+        try {
             var stat = fs.statSync(path);
 
             var total = stat.size;
@@ -102,10 +88,9 @@ app.get('/GetCameraImage', (req, res) => {
                 stream.pipe(res);
             });
         }
-    }
-    catch (e) {
-        res.send(null);
-    }
+        catch (e) {
+            res.send(null);
+        }
     }
 });
 
@@ -123,8 +108,10 @@ app.post('/DeleteCameraFile', (req, res) => {
 });
 
 app.get('/GetCameraEvent', auth, (req, res) => {
-    if (createEvents[req.query.Id] && createEvents[req.query.Id] != undefined) {
-        ret.send({ cameraId: key, cameraName: cameras[key].name, file: createEvents[req.query.Id].file, date: createEvents[req.query.Id].date });
+
+    if (cameras[req.query.Id].changed != undefined)
+    {
+        ret.send({ cameraId: key, cameraName: cameras[req.query.Id].name, file: cameras[req.query.Id].changed.file, date: cameras[req.query.Id].changed.date });
     }
     else {
         res.send(null);
@@ -134,8 +121,11 @@ app.get('/GetCameraEvent', auth, (req, res) => {
 app.get('/GetEvents', auth, (req, res) => {
     var ret = [];
 
-    Object.keys(createEvents).forEach(function (key) {
-        ret.push({ cameraId: key, cameraName: cameras[key].name, file: createEvents[key].file, date: createEvents[key].date });
+    Object.keys(cameras).forEach((key) => {
+        if (cameras[key].changed != undefined)
+        {
+            ret.push({ cameraId: key, cameraName: cameras[key].name, file: cameras[key].changed.file, date: cameras[key].changed.date });            
+        }
     });
 
     res.send(ret);
@@ -144,6 +134,9 @@ app.get('/GetEvents', auth, (req, res) => {
 var oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 
 app.get('/CameraFiles', auth, (req, res) => {
+
+    if (cameras[req.query.Id] == undefined)
+        return;
 
     var days = req.query.Days ? req.query.Days : 0;
 
@@ -155,29 +148,17 @@ app.get('/CameraFiles', auth, (req, res) => {
 
 function getRingFiles(id, deviceId, days, filter, res)
 {
-    const ringApi =  RingApi( {
-
-        // note - that the email and password can also be given by setting the RING_USER 
-        // and RING_PASSWORD environment variables. This is better if you want to keep
-        // passwords out of your source code
+    const ring = ringApi( {
         email: cameras[id].username,
         password: cameras[id].password,
-    
-        // OPTIONAL: any user agent you want to use default is the github
-        // url of this project: 'http://github.com/jimhigson/ring-api'
-        // note that this wont be used if running in a browser because this header
-        // is considered unsafe
-        userAgent: 'http://github.com/jimhigson/ring-api',
-    
-        // OPTIONAL: if true, will poll behind the scenes. Listening for
-        // events only works if this is on. True by default.
+        retries: 10,
+        userAgent: 'toptoncode',
         poll: true,
-        
-    } );
+    });
 
     var files = [];
 
-    ringApi.history((e, history) => {
+    ring.history((e, history) => {
         history.forEach(function (event) 
         {
             var item = { Name : event.kind, File: event.id, Path: event.id, ImagePath: null, Size: 0
@@ -191,9 +172,20 @@ function getRingFiles(id, deviceId, days, filter, res)
 
 function getFtpFiles(id, basePath, days, filter, res)
 {
+    if (!cameras[id].results || !cameras[id].results.length)
+    {
+        cameras[id].results = loadFtpFiles(id, basePath, days, filter);
+    }
+    res.send(cameras[id].results);
+}
+
+function loadFtpFiles(id, basePath, days, filter)
+{
     var files = [];
 
     var currentTime = new Date();
+
+    var maxFiles = 50;
 
     function walkDir(rootPath) {
 
@@ -239,7 +231,7 @@ function getFtpFiles(id, basePath, days, filter, res)
         return a.Date > b.Date ? -1 : 1;
     });
 
-    res.send(files);
+    return files.slice(0, maxFiles);
 };
 
 function getVideoImagePath(path) {
@@ -249,114 +241,55 @@ function getVideoImagePath(path) {
 app.get('/PlayCameraFile', auth, (req, res) => {
     if(cameras[req.query.Id].type == "ring")
     {
-        const ringApi =  RingApi( {
-
-            // note - that the email and password can also be given by setting the RING_USER 
-            // and RING_PASSWORD environment variables. This is better if you want to keep
-            // passwords out of your source code
+        const ring = ringApi( {
             email: cameras[req.query.Id].username,
             password: cameras[req.query.Id].password,
-        
-            // OPTIONAL: any user agent you want to use default is the github
-            // url of this project: 'http://github.com/jimhigson/ring-api'
-            // note that this wont be used if running in a browser because this header
-            // is considered unsafe
-            userAgent: 'http://github.com/jimhigson/ring-api',
-        
-            // OPTIONAL: if true, will poll behind the scenes. Listening for
-            // events only works if this is on. True by default.
+            retries: 10,
+            userAgent: 'toptoncode',
             poll: true,
-          
         } );
-        ringApi.recording(req.query.File, (e, recording) => {
+        ring.recording(req.query.File, (e, recording) => {
             res.send( { Url : recording } );
         });
     }
     else
     {
-    var path = /*cameras[req.query.Id].files + "/" + */req.query.File;
+        var path = req.query.File;
 
-    var stat = fs.statSync(path);
+        var stat = fs.statSync(path);
 
-    var total = stat.size;
-    if (req.headers['range']) {
-        var range = req.headers.range;
-        var parts = range.replace(/bytes=/, "").split("-");
-        var partialstart = parts[0];
-        var partialend = parts[1];
+        var total = stat.size;
+        if (req.headers['range']) {
+            var range = req.headers.range;
+            var parts = range.replace(/bytes=/, "").split("-");
+            var partialstart = parts[0];
+            var partialend = parts[1];
 
-        var start = parseInt(partialstart, 10);
-        var end = partialend ? parseInt(partialend, 10) : total - 1;
+            var start = parseInt(partialstart, 10);
+            var end = partialend ? parseInt(partialend, 10) : total - 1;
 
-        var chunksize = (end - start) + 1;
+            var chunksize = (end - start) + 1;
 
-        var file = fs.createReadStream(path, { start: start, end: end });
-        res.writeHead(206, { 'Content-Range': 'bytes ' + start + '-' + end + '/' + total, 'Accept-Ranges': 'bytes', 'Content-Length': chunksize, 'Content-Type': 'video/mp4' });
-        file.on('open', () => {
-            file.pipe(res);
-        });
-    }
-    else {
-        res.writeHead(200, { 'Content-Length': total, 'Content-Type': 'video/mp4' });
+            var file = fs.createReadStream(path, { start: start, end: end });
+            res.writeHead(206, { 'Content-Range': 'bytes ' + start + '-' + end + '/' + total, 'Accept-Ranges': 'bytes', 'Content-Length': chunksize, 'Content-Type': 'video/mp4' });
+            file.on('open', () => {
+                file.pipe(res);
+            });
+        }
+        else {
+            res.writeHead(200, { 'Content-Length': total, 'Content-Type': 'video/mp4' });
 
-        var stream = fs.createReadStream(path);
-        stream.on('open', () => {
-            stream.pipe(res);
-        });
-    }
+            var stream = fs.createReadStream(path);
+            stream.on('open', () => {
+                stream.pipe(res);
+            });
+        }
     }
 });
-
-var rtspStreaming;
 
 app.get('/PlayLiveVideo', auth, (req, res) => {
     res.send({ status : "OK" });
-    if (!rtspStreaming)
-    {
-        rtspStreaming = new rtspStream({
-            name: 'name',
-            streamUrl: cameras[req.query.Id].liveip,
-            wsPort: 9999
-        });
-    }
 });
-
-function startMonitoring() {
-    console.log("Starting folder monitoring...");
-
-    var targets = [];
-
-    Object.keys(cameras).forEach((key) => {
-        targets.push(cameras[key].files);
-    });
-
-    var onFileCreation = (ev) => {
-        console.log("File " + ev.filename + " was created on " + ev.timestamp.toISOString());
-
-        Object.keys(cameras).forEach(function (key) {
-            if (ev.filename.substring(0, cameras[key].files.length) == cameras[key].files) {
-                createEvents[key] = { file: ev.filename.substring(cameras[key].files.length + 1), date: ev.timestamp };
-                console.dir(createEvents);
-                return;
-            }
-        });
-    }
-
-    var options = {
-        recursive: false,
-        target: targets,
-        listeners: {
-            create: onFileCreation
-        }
-    };
-
-    filemon.watch(options);
-}
-
-function stopMonitoring() {
-    console.log("Stopping folder monitoring...");
-    filemon.stop();
-}
 
 http.createServer(app).listen(app.get('port'), () => {
     console.log('Express server listening on port ' + app.get('port'));
@@ -366,9 +299,17 @@ console.log("Loading Camera data...");
 
 fs.readFile(__dirname + '/cameras.json', (err, data) => {
     cameras = JSON.parse(data);
-//    startMonitoring();
+
+    Object.keys(cameras).forEach((key) => {
+        if (cameras[key].type == "ftp")
+        {
+            watch(cameras[key].files, { recursive: true }, function(evt, name) {
+                cameras[key].results = loadFtpFiles(key, cameras[key].files, 1, ".mp4");    
+                cameras[key].changed = { file: name.substring(cameras[key].files.length + 1), date: new Date().getTime() };
+            });
+        }
+    });
 });
 
 process.on("exit", () => {
-    //stopMonitoring();
 });
