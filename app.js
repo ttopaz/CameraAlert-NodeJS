@@ -117,6 +117,15 @@ app.post('/DeleteCameraFile', (req, res) => {
     });
 });
 
+app.post('/SetToken', (req, res) => {
+    var token = req.body.Token;
+
+    registrationTokens = [token];
+
+    console.log("token: " + token);
+    res.send("OK");
+});
+
 app.get('/GetCameraEvent', auth, (req, res) => {
 
     if (cameras[req.query.Id].changed != undefined)
@@ -315,10 +324,11 @@ function sendMessage(camera, file, date)
     var payload = {
         notification: {
             title: 'Camera Alert',
-            body : 'Motion detected at ' + camera.name + ' on ' + date.toLocaleString()
+            body : 'Motion detected at ' + camera.name,
+            sound : 'default'
         },
         data : {
-            cameraId : camera.Id,
+            cameraId : camera.id,
             cameraName : camera.name,
             file : file,
             date : date.toISOString()
@@ -341,18 +351,20 @@ fs.readFile(__dirname + '/cameras.json', (err, data) => {
 
     Object.keys(cameras).forEach((key) => {
         var camera = cameras[key];
+        camera.id = key;
         if (camera.type == "ftp")
         {
             camera.lastChanged = null;
             camera.results = null;
             camera.changed = null;
             watch(camera.files, { recursive: true }, function(evt, name) {
-                if (camera.lastChanged != name)
+                var cname = name.replace(".jpg", ".mp4");
+                if (camera.lastChanged != cname)
                 {
                     console.log('%s changed', name);
                     camera.results = loadFtpFiles(key, camera.files, 1, ".mp4");    
                     camera.changed = { file: name.substring(camera.files.length + 1), date: new Date() };
-                    camera.lastChanged = name;
+                    camera.lastChanged = cname;
                     sendMessage(camera, camera.changed.file, camera.changed.date);
                 }
             });
