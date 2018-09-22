@@ -1,8 +1,8 @@
 
 const dotenv = require('dotenv').config({path: __dirname + "/.env"});
-const fs = require('fs'),
-    xml2js = require('xml2js'),
-    net = require('net');
+const fs = require('fs');
+const xml2js = require('xml2js');
+const net = require('net');
 const express = require('express');
 const basicAuth = require('basic-auth');
 const bodyParser = require('body-parser');
@@ -33,7 +33,7 @@ http.globalAgent.maxSockets = 1000;
 
 var cameras = null;
 
-//dotenv.load()
+dotenv.load()
 
 app.set('port', process.env.PORT || 3500);
 app.use(json());
@@ -57,7 +57,7 @@ var auth = (req, res, next) => {
         console.log("unauthorized");
         return unauthorized(res);
     };
-    if (user.name === "admin" && user.pass === "admin") {
+    if (user.name === process.env.USERNAME && user.pass === process.env.PASSWORD) {
         return next();
     } else {
         return unauthorized(res);
@@ -171,8 +171,8 @@ app.get('/CameraFiles', auth, (req, res) => {
 function getRingFiles(id, deviceId, days, filter, res)
 {
     const ring = ringApi( {
-        email: cameras[id].username,
-        password: cameras[id].password,
+        email: cameras[id].username.replace("{RINGUSERNAME}", process.env.RINGUSERNAME),
+        password: cameras[id].password.replace("{RINGPASSWORD}", process.env.RINGPASSWORD),
         retries: 10,
         userAgent: 'toptoncode',
         poll: true,
@@ -322,11 +322,6 @@ console.log("Loading Camera data...");
 function sendMessage(camera, file, date)
 {
     var payload = {
-        notification: {
-            title: 'Camera Alert',
-            body : 'Motion detected at ' + camera.name,
-            sound : 'default'
-        },
         data : {
             cameraId : camera.id,
             cameraName : camera.name,
@@ -354,6 +349,8 @@ fs.readFile(__dirname + '/cameras.json', (err, data) => {
         camera.id = key;
         if (camera.type == "ftp")
         {
+            camera.username = camera.username.replace("{RINGUSERNAME}", process.env.RINGUSERNAME);
+            camera.password = camera.username.replace("{RINGPASSWORD}", process.env.RINGPASSWORD);
             camera.lastChanged = null;
             camera.results = null;
             camera.changed = null;
@@ -368,6 +365,13 @@ fs.readFile(__dirname + '/cameras.json', (err, data) => {
                     sendMessage(camera, camera.changed.file, camera.changed.date);
                 }
             });
+        }
+        else
+        {
+            camera.liveip = camera.liveip.replace("{VDUSERNAME}", process.env.VDUSERNAME);
+            camera.liveip = camera.liveip.replace("{VDPASSWORD}", process.env.VDPASSWORD);
+            camera.livevideo = camera.liveip.replace("{VDUSERNAME}", process.env.VDUSERNAME);
+            camera.livevideo = camera.liveip.replace("{VDPASSWORD}", process.env.VDPASSWORD);
         }
     });
 });
