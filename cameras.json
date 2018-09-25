@@ -1,22 +1,22 @@
 {
     "1": {
         "name" :"Driveway", 
-        "liveip" :"rtsp://admin:nadneda123@192.168.1.115:554/h264Preview_01_main", 
-	"livevideo" : "rtmp://192.168.1.115:1935/bcs/channel0_main.bcs?user=admin&password=nadneda123",
+        "liveip" :"rtsp://{VDUSERNAME}:{VDPASSWORD}@192.168.1.115:554/h264Preview_01_main", 
+	"livevideo" : "rtmp://192.168.1.115:1935/bcs/channel0_main.bcs?user={VDUSERNAME}&password={VDPASSWORD}",
         "files" :"/media/UsbDrive/Camera/driveway",
         "type" : "ftp"
         },
      "2" : { 
         "name" :"Back Door", 
-        "liveip" :"rtsp://admin:nadneda123@192.168.1.116:555/h264Preview_01_main", 
-	"livevideo" : "rtmp://192.168.1.116:1935/bcs/channel0_main.bcs?user=admin&password=nadneda123",
+        "liveip" :"rtsp://{VDUSERNAME}:{VDPASSWORD}@192.168.1.116:555/h264Preview_01_main", 
+	"livevideo" : "rtmp://192.168.1.116:1935/bcs/channel0_main.bcs?user={VDUSERNAME}&password={VDPASSWORD}",
         "files" :"/media/UsbDrive/Camera/backdoor",
         "type" : "ftp"
         },
     "3" : { 
         "name" :"Front Door", 
-        "username" : "ttopaz@gmail.com",
-        "password" : "nadneda123",
+        "username" : "{RINGUSERNAME}",
+        "password" : "{RINGPASSWORD}",
         "deviceId" : "1",
         "type" : "ring"
         }
