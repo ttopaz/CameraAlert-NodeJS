@@ -33,7 +33,7 @@ http.globalAgent.maxSockets = 1000;
 
 var cameras = null;
 
-dotenv.load()
+//dotenv.load()
 
 app.set('port', process.env.PORT || 3500);
 app.use(json());
@@ -163,7 +163,7 @@ app.get('/CameraFiles', auth, (req, res) => {
     var days = req.query.Days ? req.query.Days : 0;
 
     if (cameras[req.query.Id].type == "ftp")
-        getFtpFiles(req.query.Id, cameras[req.query.Id].files, days, req.query.Filter, res);
+        getFtpFiles(req.query.Id, cameras[req.query.Id].files, days, req.query.Date, req.query.Filter, res);
     else if (cameras[req.query.Id].type == "ring")
         getRingFiles(req.query.Id, cameras[req.query.Id].deviceId, 0, null, res);
 });
@@ -192,16 +192,51 @@ function getRingFiles(id, deviceId, days, filter, res)
     });
 }
 
-function getFtpFiles(id, basePath, days, filter, res)
-{
-    if (!cameras[id].results || !cameras[id].results.length)
-    {
-        cameras[id].results = loadFtpFiles(id, basePath, days, filter);
-    }
-    res.send(cameras[id].results);
+function getPaddedValue(value)
+
+ {   if (parseInt(value) > 9)
+        return value.toString();
+    else
+        return "0" + value.toString();                
 }
 
-function loadFtpFiles(id, basePath, days, filter)
+function getFtpFiles(id, basePath, days, dateFilter, filter, res)
+{
+    if (!dateFilter)
+    {
+        if (!cameras[id].results || !cameras[id].results.length)
+        {
+            if (cameras[id].hasDirs)
+            {
+                var today = new Date();
+                dateFilter = today.getFullYear() + "/" + today.getMonth() + "/" + today.getDate();
+                var path = basePath + "/" + today.getFullYear() + "/" + getPaddedValue(today.getMonth() + 1) + "/" + getPaddedValue(today.getDate());
+                var data = loadFtpFiles(id, path, days, dateFilter, filter);
+
+                today.setDate(today.getDate() - 1);
+                dateFilter = today.getFullYear() + "/" + today.getMonth() + "/" + today.getDate();
+                path = basePath + "/" + today.getFullYear() + "/" + getPaddedValue(today.getMonth() + 1) + "/" + getPaddedValue(today.getDate());
+                data = data.concat(loadFtpFiles(id, path, days, dateFilter, filter));
+
+                cameras[id].results = data;
+            }
+            else
+                cameras[id].results = loadFtpFiles(id, basePath, days, dateFilter, filter);
+        }
+        res.send(cameras[id].results);
+    }
+    else
+    {
+        if (cameras[id].hasDirs)
+        {
+            var parts = dateFilter.split("/");
+            basePath += "/" + parts[0] + "/" + getPaddedValue(parseInt(parts[1]) + 1) + "/" + getPaddedValue(parts[2]);
+        }
+        res.send(loadFtpFiles(id, basePath, days, dateFilter, filter));
+    }
+}
+
+function loadFtpFiles(id, basePath, days, dateFilter, filter)
 {
     var files = [];
 
@@ -209,9 +244,25 @@ function loadFtpFiles(id, basePath, days, filter)
 
     var maxFiles = 50;
 
+    var checkDate = null;
+
+    if (dateFilter)
+    {
+        var parts = dateFilter.split("/");
+        checkDate = new Date(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]));
+        maxFiles = 0;
+    }
+
     function walkDir(rootPath) {
 
-        var items = fs.readdirSync(rootPath);
+        var items;
+        try {
+            items = fs.readdirSync(rootPath);
+        }
+        catch (e)
+        {
+            return;
+        }
 
         if (items) {
             for (var i = 0; i < items.length; i++) {
@@ -230,7 +281,19 @@ function loadFtpFiles(id, basePath, days, filter)
                     var date = stats["mtime"];
                     var bdate = stats["birthtime"];
 
-                    if (days > 0) {
+                    if (checkDate)
+                    {
+                        var yearMonthDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                        if (yearMonthDay > checkDate)
+                        {
+                            return;
+                        }
+                        if (yearMonthDay < checkDate)
+                        {
+                            continue;
+                        }
+                    }
+                    else if (days > 0) {
                         var diffDays = Math.round(Math.abs((date.getTime() - currentTime.getTime()) / (oneDay)));
                         if (diffDays > days)
                             continue;
@@ -253,7 +316,10 @@ function loadFtpFiles(id, basePath, days, filter)
         return a.Date > b.Date ? -1 : 1;
     });
 
-    return files.slice(0, maxFiles);
+    if (maxFiles)
+        return files.slice(0, maxFiles);
+    else
+        return files;                
 };
 
 function getVideoImagePath(path) {
@@ -349,8 +415,8 @@ fs.readFile(__dirname + '/cameras.json', (err, data) => {
         camera.id = key;
         if (camera.type == "ftp")
         {
-            camera.username = camera.username.replace("{RINGUSERNAME}", process.env.RINGUSERNAME);
-            camera.password = camera.username.replace("{RINGPASSWORD}", process.env.RINGPASSWORD);
+  //          camera.username = camera.username.replace("{RINGUSERNAME}", process.env.RINGUSERNAME);
+  //          camera.password = camera.username.replace("{RINGPASSWORD}", process.env.RINGPASSWORD);
             camera.lastChanged = null;
             camera.results = null;
             camera.changed = null;
@@ -366,13 +432,13 @@ fs.readFile(__dirname + '/cameras.json', (err, data) => {
                 }
             });
         }
-        else
+     /*   else
         {
             camera.liveip = camera.liveip.replace("{VDUSERNAME}", process.env.VDUSERNAME);
             camera.liveip = camera.liveip.replace("{VDPASSWORD}", process.env.VDPASSWORD);
             camera.livevideo = camera.liveip.replace("{VDUSERNAME}", process.env.VDUSERNAME);
             camera.livevideo = camera.liveip.replace("{VDPASSWORD}", process.env.VDPASSWORD);
-        }
+        }*/
     });
 });
 
